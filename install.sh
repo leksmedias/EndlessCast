@@ -164,7 +164,7 @@ main() {
 
     echo ""
 
-    # ── Step 3: Install dependencies ─────────────────────────────────────────
+    # ── Step 3: Install dependencies & Build ─────────────────────────────────
     print_step "Installing dependencies..."
     echo ""
 
@@ -175,6 +175,11 @@ main() {
 
     npm install 2>&1 | while IFS= read -r line; do echo -e "    ${CYAN}>${NC} $line"; done
     print_success "Dependencies installed successfully!"
+
+    echo ""
+    print_step "Building production client and server..."
+    npm run build 2>&1 | while IFS= read -r line; do echo -e "    ${CYAN}>${NC} $line"; done
+    print_success "Build completed successfully!"
 
     echo ""
 
@@ -261,175 +266,9 @@ ENVEOF
 
     echo ""
 
-    # ── Step 6: Generate management scripts ──────────────────────────────────
-    print_step "Generating management scripts..."
-
     CURRENT_DIR=$(pwd)
     SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "your-ip")
 
-    # ── start.sh ──────────────────────────────────────────────────────────────
-    cat > start.sh << 'STARTEOF'
-#!/bin/bash
-# EndlessCast — start in background (pm2 → nohup fallback)
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
-source .env 2>/dev/null || true
-
-GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'
-
-echo -e "${GREEN}"
-echo "╔═══════════════════════════════════════════════════════════╗"
-echo "║             STARTING ENDLESSCAST SERVER                   ║"
-echo "╚═══════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
-
-export PORT=${PORT:-5000}
-
-# ── pm2 (preferred) ──────────────────────────────────────────────────────────
-if command -v pm2 &>/dev/null; then
-    echo -e "${CYAN}[>]${NC} Using pm2 process manager..."
-    pm2 describe endlesscast &>/dev/null && pm2 delete endlesscast &>/dev/null || true
-    pm2 start node_modules/.bin/tsx \
-        --name endlesscast \
-        --env production \
-        -- server/index.ts
-    pm2 save
-    echo -e "${GREEN}[✓]${NC} Started with pm2. Use './status.sh' to monitor."
-    echo -e "${GREEN}[✓]${NC} Access: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${PORT}"
-    exit 0
-fi
-
-# ── nohup fallback ────────────────────────────────────────────────────────────
-echo -e "${CYAN}[>]${NC} Using nohup (background mode)..."
-
-# Remove CPU time limit so FFmpeg child processes are not killed by SIGXCPU
-ulimit -t unlimited 2>/dev/null || true
-
-PID_FILE="$SCRIPT_DIR/endlesscast.pid"
-
-if [ -f "$PID_FILE" ]; then
-    OLD_PID=$(cat "$PID_FILE")
-    if kill -0 "$OLD_PID" 2>/dev/null; then
-        echo -e "${YELLOW}[!]${NC} Already running (PID $OLD_PID). Stop it first with ./stop.sh"
-        exit 1
-    fi
-fi
-
-nohup node_modules/.bin/tsx server/index.ts \
-    > "$SCRIPT_DIR/endlesscast.log" 2>&1 &
-
-NEW_PID=$!
-echo "$NEW_PID" > "$PID_FILE"
-
-sleep 2
-if kill -0 "$NEW_PID" 2>/dev/null; then
-    echo -e "${GREEN}[✓]${NC} EndlessCast running in background (PID $NEW_PID)"
-    echo -e "${GREEN}[✓]${NC} Access:  http://$(hostname -I 2>/dev/null | awk '{print $1}'):${PORT}"
-    echo -e "${CYAN}[i]${NC} Logs:    tail -f $SCRIPT_DIR/endlesscast.log"
-    echo -e "${CYAN}[i]${NC} Stop:    ./stop.sh"
-else
-    echo -e "\033[0;31m[✗]\033[0m Failed to start. Check endlesscast.log for details."
-    cat "$SCRIPT_DIR/endlesscast.log" | tail -20
-    exit 1
-fi
-STARTEOF
-    chmod +x start.sh
-
-    # ── stop.sh ───────────────────────────────────────────────────────────────
-    cat > stop.sh << 'STOPEOF'
-#!/bin/bash
-# EndlessCast — stop background process
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
-
-if command -v pm2 &>/dev/null && pm2 describe endlesscast &>/dev/null; then
-    pm2 stop endlesscast
-    echo -e "${GREEN}[✓]${NC} Stopped via pm2."
-    exit 0
-fi
-
-PID_FILE="$SCRIPT_DIR/endlesscast.pid"
-if [ ! -f "$PID_FILE" ]; then
-    echo -e "${RED}[✗]${NC} No PID file found. Is EndlessCast running?"
-    exit 1
-fi
-
-PID=$(cat "$PID_FILE")
-if kill -0 "$PID" 2>/dev/null; then
-    kill "$PID"
-    sleep 1
-    kill -9 "$PID" 2>/dev/null || true
-    rm -f "$PID_FILE"
-    echo -e "${GREEN}[✓]${NC} EndlessCast stopped (PID $PID)."
-else
-    echo -e "${RED}[✗]${NC} Process $PID not running. Cleaning up PID file."
-    rm -f "$PID_FILE"
-fi
-STOPEOF
-    chmod +x stop.sh
-
-    # ── status.sh ─────────────────────────────────────────────────────────────
-    cat > status.sh << 'STATEOF'
-#!/bin/bash
-# EndlessCast — check status
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/.env" 2>/dev/null || true
-PORT=${PORT:-5000}
-GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
-
-echo ""
-echo -e "${CYAN}EndlessCast Status${NC}"
-echo "────────────────────────────────────"
-
-if command -v pm2 &>/dev/null && pm2 describe endlesscast &>/dev/null 2>&1; then
-    pm2 show endlesscast
-    echo ""
-    echo -e "${CYAN}[i]${NC} Access: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${PORT}"
-    exit 0
-fi
-
-PID_FILE="$SCRIPT_DIR/endlesscast.pid"
-if [ -f "$PID_FILE" ]; then
-    PID=$(cat "$PID_FILE")
-    if kill -0 "$PID" 2>/dev/null; then
-        echo -e "  Status : ${GREEN}RUNNING${NC} (PID $PID)"
-        echo -e "  Port   : $PORT"
-        echo -e "  Access : http://$(hostname -I 2>/dev/null | awk '{print $1}'):${PORT}"
-        echo -e "  Logs   : tail -f $SCRIPT_DIR/endlesscast.log"
-    else
-        echo -e "  Status : ${RED}STOPPED${NC} (stale PID file)"
-    fi
-else
-    echo -e "  Status : ${RED}NOT RUNNING${NC}"
-fi
-echo ""
-STATEOF
-    chmod +x status.sh
-
-    # ── restart.sh ────────────────────────────────────────────────────────────
-    cat > restart.sh << 'RESTARTEOF'
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
-
-if command -v pm2 &>/dev/null && pm2 describe endlesscast &>/dev/null 2>&1; then
-    pm2 restart endlesscast
-    echo -e "\033[0;32m[✓]\033[0m Restarted via pm2."
-    exit 0
-fi
-
-./stop.sh 2>/dev/null || true
-sleep 1
-./start.sh
-RESTARTEOF
-    chmod +x restart.sh
-
-    print_success "Created start.sh / stop.sh / status.sh / restart.sh"
-
-    echo ""
 
     # ── Step 7: Systemd service ───────────────────────────────────────────────
     print_step "Creating systemd service file..."
@@ -445,7 +284,7 @@ Type=simple
 User=$USER
 WorkingDirectory=$CURRENT_DIR
 EnvironmentFile=$CURRENT_DIR/.env
-ExecStart=/usr/bin/env node_modules/.bin/tsx server/index.ts
+ExecStart=/usr/bin/env node $CURRENT_DIR/dist/index.js
 Restart=always
 RestartSec=5
 StandardOutput=append:$CURRENT_DIR/endlesscast.log
@@ -546,7 +385,7 @@ SVCEOF
             print_step "Starting in foreground (Ctrl+C to stop)..."
             echo ""
             export PORT=$SELECTED_PORT
-            node_modules/.bin/tsx server/index.ts
+            node dist/index.js
             ;;
         *)
             print_info "Run './start.sh' when ready to start EndlessCast."

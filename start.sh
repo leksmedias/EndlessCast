@@ -14,7 +14,7 @@ export PORT=${PORT:-5000}
 export NODE_ENV=production
 
 # ── Build if needed ───────────────────────────────────────────────────────────
-if [ ! -f "$SCRIPT_DIR/dist/index.cjs" ] || [ ! -d "$SCRIPT_DIR/dist/public" ]; then
+if [ ! -f "$SCRIPT_DIR/dist/index.js" ] || [ ! -d "$SCRIPT_DIR/dist/public" ]; then
     echo -e "${YELLOW}[!]${NC} Production build not found. Building now..."
     npm run build
     if [ $? -ne 0 ]; then
@@ -37,7 +37,7 @@ if command -v pm2 &>/dev/null; then
 
     pm2 delete endlesscast 2>/dev/null || true
 
-    pm2 start "$SCRIPT_DIR/dist/index.cjs" \
+    pm2 start "$SCRIPT_DIR/dist/index.js" \
         --name endlesscast \
         --cwd "$SCRIPT_DIR"
 
@@ -89,7 +89,7 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 fi
 
-nohup node "$SCRIPT_DIR/dist/index.cjs" > "$LOG_FILE" 2>&1 &
+nohup node "$SCRIPT_DIR/dist/index.js" > "$LOG_FILE" 2>&1 &
 NEW_PID=$!
 echo "$NEW_PID" > "$PID_FILE"
 
