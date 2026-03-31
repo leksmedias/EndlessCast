@@ -190,18 +190,18 @@ export default function Videos() {
 
         if (chunkResp.status === 409) {
           // Server says we're out of sync — jump to where it is
-          const d = await chunkResp.json();
-          bytesSent = d.bytesReceived;
+          const d = await chunkResp.json().catch(() => ({}));
+          bytesSent = (d as any).bytesReceived ?? bytesSent;
           continue;
         }
 
         if (!chunkResp.ok) {
           const d = await chunkResp.json().catch(() => ({}));
-          throw new Error(d.message || "Chunk upload failed");
+          throw new Error((d as any).message || "Chunk upload failed");
         }
 
-        const d = await chunkResp.json();
-        bytesSent = d.bytesReceived;
+        const d = await chunkResp.json().catch(() => ({}));
+        bytesSent = (d as any).bytesReceived ?? bytesSent;
 
         // Compute speed
         const now = Date.now();

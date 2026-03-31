@@ -523,6 +523,45 @@ class StreamingService {
   isStreaming(): boolean {
     return this.processes.size > 0 || this.reconnectStates.size > 0;
   }
+
+  async startSingleEndpoint(endpointId: string): Promise<void> {
+    const state = await storage.getStreamingState();
+    if (!state.isStreaming) {
+      throw new Error("Not currently streaming — start the main stream first");
+    }
+
+    if (this.processes.has(endpointId)) {
+      throw new Error("This endpoint is already streaming");
+    }
+    // Cancel any pending reconnect so we don't double-start
+    const existingRs = this.reconnectStates.get(endpointId);
+    if (existingRs?.timer) clearTimeout(existingRs.timer);
+    this.reconnectStates.delete(endpointId);
+
+    const endpoint = await storage.getRtmpEndpoint(endpointId);
+    if (!endpoint) throw new Error("Endpoint not found");
+
+    const resolvedVideoId = endpoint.videoId ?? state.selectedVideoId;
+    if (!resolvedVideoId) throw new Error(`No video assigned to "${endpoint.name}"`);
+    const video = await storage.getVideo(resolvedVideoId);
+    if (!video) throw new Error("Assigned video not found");
+    const videoPath = path.join(process.cwd(), "uploads", video.filename);
+
+    let extraCameraPath: string | null = null;
+    const extraCamera = state.extraCamera?.enabled ? state.extraCamera : null;
+    if (extraCamera) {
+      const camVideo = await storage.getVideo(extraCamera.videoId);
+      if (camVideo) extraCameraPath = path.join(process.cwd(), "uploads", camVideo.filename);
+    }
+
+    await storage.updateEndpointStatus(endpointId, { status: "connecting", reconnectCount: 0 });
+    await this.startEndpointStream(videoPath, endpoint, 0, false, extraCameraPath, extraCamera);
+    await storage.addLog({
+      level: "info",
+      message: `"${endpoint.name}" started (added to active stream)`,
+      endpoint: endpoint.name,
+    });
+  }
 }
 
 export const streamingService = new StreamingService();

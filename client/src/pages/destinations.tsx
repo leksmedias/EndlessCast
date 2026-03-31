@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { RtmpEndpoint, StreamingState, InsertRtmpEndpoint, Video } from "@shared/schema";
@@ -8,6 +9,7 @@ import { Server, Wifi, Radio } from "lucide-react";
 
 export default function Destinations() {
   const { toast } = useToast();
+  const [startingEndpointId, setStartingEndpointId] = useState<string | null>(null);
 
   const { data: endpoints = [], isLoading: endpointsLoading } = useQuery<RtmpEndpoint[]>({
     queryKey: ["/api/rtmp-endpoints"],
@@ -49,6 +51,20 @@ export default function Destinations() {
       toast({ title: "Endpoint Removed", description: "RTMP destination deleted." });
     },
   });
+
+  const handleStartEndpoint = async (endpointId: string) => {
+    setStartingEndpointId(endpointId);
+    try {
+      await apiRequest("POST", `/api/streaming/start-endpoint/${endpointId}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/streaming/state"] });
+      const ep = endpoints.find(e => e.id === endpointId);
+      toast({ title: "Going Live", description: `${ep?.name ?? "Endpoint"} is connecting...` });
+    } catch (err: any) {
+      toast({ title: "Failed to Start", description: err.message, variant: "destructive" });
+    } finally {
+      setStartingEndpointId(null);
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
@@ -96,7 +112,12 @@ export default function Destinations() {
             </div>
             <h3 className="text-sm font-semibold text-foreground">Endpoint Status</h3>
           </div>
-          <StatusDashboard endpoints={enabledEndpoints} streamingState={streamingState} />
+          <StatusDashboard
+            endpoints={enabledEndpoints}
+            streamingState={streamingState}
+            onStartEndpoint={handleStartEndpoint}
+            startingEndpointId={startingEndpointId}
+          />
         </div>
       )}
     </div>

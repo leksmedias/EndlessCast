@@ -641,6 +641,17 @@ export async function registerRoutes(
     }
   });
 
+  // Start a single endpoint mid-stream (without disrupting others)
+  app.post("/api/streaming/start-endpoint/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      await streamingService.startSingleEndpoint(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Start endpoint error:", error);
+      res.status(400).json({ message: error.message || "Failed to start endpoint" });
+    }
+  });
+
   // Set extra camera (PiP overlay)
   app.post("/api/streaming/extra-camera", requireAuth, async (req: Request, res: Response) => {
     try {

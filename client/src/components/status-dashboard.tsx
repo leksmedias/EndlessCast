@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { Activity, AlertTriangle, Loader2, Play } from "lucide-react";
 import { SiYoutube, SiFacebook } from "react-icons/si";
 import type { RtmpEndpoint, StreamingState, RtmpPlatform, StreamStatus } from "@shared/schema";
 import { platformInfo } from "@shared/schema";
@@ -6,6 +6,8 @@ import { platformInfo } from "@shared/schema";
 interface StatusDashboardProps {
   endpoints: RtmpEndpoint[];
   streamingState: StreamingState | undefined;
+  onStartEndpoint?: (endpointId: string) => void;
+  startingEndpointId?: string | null;
 }
 
 function PlatformIcon({ platform, className }: { platform: RtmpPlatform; className?: string }) {
@@ -55,7 +57,7 @@ function statusLabel(status: StreamStatus["status"]) {
   }
 }
 
-export function StatusDashboard({ endpoints, streamingState }: StatusDashboardProps) {
+export function StatusDashboard({ endpoints, streamingState, onStartEndpoint, startingEndpointId }: StatusDashboardProps) {
   const isStreaming = streamingState?.isStreaming || false;
   const endpointStatuses = streamingState?.endpointStatuses || [];
 
@@ -114,8 +116,20 @@ export function StatusDashboard({ endpoints, streamingState }: StatusDashboardPr
               )}
             </div>
 
-            {/* Status indicator */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Status indicator + Go Live button */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {isStreaming && onStartEndpoint && (epStatus.status === "stopped" || epStatus.status === "idle" || epStatus.status === "error") && (
+                <button
+                  onClick={() => onStartEndpoint(endpoint.id)}
+                  disabled={startingEndpointId === endpoint.id}
+                  className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border border-green-500/40 bg-green-500/10 text-green-500 hover:bg-green-500/20 disabled:opacity-50 transition-colors"
+                >
+                  {startingEndpointId === endpoint.id
+                    ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    : <Play className="w-2.5 h-2.5" />}
+                  Go Live
+                </button>
+              )}
               <StatusDot status={epStatus.status} />
               <span className={`text-[11px] font-medium ${color}`}>{text}</span>
             </div>
