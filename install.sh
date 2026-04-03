@@ -174,11 +174,19 @@ main() {
     fi
 
     npm install 2>&1 | while IFS= read -r line; do echo -e "    ${CYAN}>${NC} $line"; done
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        print_error "npm install failed. Check the output above."
+        exit 1
+    fi
     print_success "Dependencies installed successfully!"
 
     echo ""
     print_step "Building production client and server..."
     npm run build 2>&1 | while IFS= read -r line; do echo -e "    ${CYAN}>${NC} $line"; done
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        print_error "Build failed. Check the output above."
+        exit 1
+    fi
     print_success "Build completed successfully!"
 
     echo ""

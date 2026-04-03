@@ -1,6 +1,6 @@
 #!/bin/bash
 # EndlessCast — start in background (pm2 → nohup fallback)
-# Runs the compiled production build (dist/index.cjs), NOT tsx.
+# Runs the compiled production build (dist/index.js), NOT tsx.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
