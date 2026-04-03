@@ -479,7 +479,7 @@ npm uninstall -g pm2
 ```
 ### Update
 ```bash
-cd ~/EndlessCast && git pull && npm run build && pm2 restart endlesscast
+cd ~/EndlessCast && git pull && npm install && npm run build && ./restart.sh
 ```
 
 
