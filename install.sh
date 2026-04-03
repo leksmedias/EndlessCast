@@ -292,7 +292,7 @@ Type=simple
 User=$USER
 WorkingDirectory=$CURRENT_DIR
 EnvironmentFile=$CURRENT_DIR/.env
-ExecStart=/usr/bin/env node $CURRENT_DIR/dist/index.js
+ExecStart=/usr/bin/env node $CURRENT_DIR/dist/index.cjs
 Restart=always
 RestartSec=5
 StandardOutput=append:$CURRENT_DIR/endlesscast.log
@@ -393,7 +393,7 @@ SVCEOF
             print_step "Starting in foreground (Ctrl+C to stop)..."
             echo ""
             export PORT=$SELECTED_PORT
-            node dist/index.js
+            node dist/index.cjs
             ;;
         *)
             print_info "Run './start.sh' when ready to start EndlessCast."
